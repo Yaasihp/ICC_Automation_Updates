@@ -110,6 +110,15 @@ function sendProposalCalendarInvitesSandbox() {
       return;
     }
 
+    const piEmail = getPiEmailFromRow_(row, col);
+    console.log(`Row ${rowNumber} piEmail=${piEmail}`);
+
+    // Build combined guest list: form submitter + PI (deduplicated)
+    const allGuests = [recipientEmail, piEmail]
+      .filter(Boolean)
+      .filter((v, i, a) => a.indexOf(v) === i)
+      .join(',');
+    console.log(`Row ${rowNumber} allGuests=${allGuests}`);
 
     const sponsor = String(row[col['Sponsor'] - 1] || '').trim() || 'Sponsor';
     const piName = getPiNameFromRow_(row, col);
@@ -142,7 +151,7 @@ function sendProposalCalendarInvitesSandbox() {
           calendar,
           `${piName} ${sponsor} Budget Deadline`,
           buildBudgetDeadlineDescription_(iccLead),
-          recipientEmail,
+          allGuests,
           mtuDates.fullBudget
         );
       }
@@ -152,7 +161,7 @@ function sendProposalCalendarInvitesSandbox() {
           calendar,
           `${piName} ${sponsor} Tier 1 Deadline`,
           buildTier1DeadlineDescription_(iccLead),
-          recipientEmail,
+          allGuests,
           mtuDates.tier1
         );
       }
@@ -162,7 +171,7 @@ function sendProposalCalendarInvitesSandbox() {
           calendar,
           `${piName} ${sponsor} Tier 2 Deadline`,
           buildTier2DeadlineDescription_(iccLead),
-          recipientEmail,
+          allGuests,
           mtuDates.tier2
         );
       }
@@ -253,7 +262,9 @@ function createDeadlineEvent_(calendar, title, description, guestEmail, dateStr)
 
       try {
         const secondaryEvent = secondaryCalendar.createEvent(title, start, end, {
-          description: description
+          description: description,
+          guests: guestEmail,
+          sendInvites: false   // secondary calendar — visibility only, no duplicate invite emails
         });
 
         console.log(`${logTag} Secondary event created. ID=${secondaryEvent.getId()}`);
@@ -411,6 +422,27 @@ function getPiNameFromRow_(row, col) {
   }
 
   return 'PI';
+}
+
+function getPiEmailFromRow_(row, col) {
+  const candidates = [
+    'PI Email',
+    'PI Email Address',
+    'Principal Investigator Email',
+    'Email of Principal Investigator',
+    'Michigan Tech Point of Contact Email',
+    'PI MTU Email',
+    'Contact Email'
+  ];
+
+  for (const h of candidates) {
+    if (col[h]) {
+      const value = extractEmail_(String(row[col[h] - 1] || '').trim());
+      if (value) return value;
+    }
+  }
+
+  return null;
 }
 
 function getIccLeadFromRow_(row, col) {
